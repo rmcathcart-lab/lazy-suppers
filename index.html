@@ -436,7 +436,7 @@ function prefs(){const p=S.prefs||{};return{cookDays:Array.isArray(p.cookDays)?p
 
 /* ---------- Storage: shared database when available, this browser otherwise ---------- */
 /* Paste the Apps Script web app URL (ends in /exec) here to turn on PIN sign-in and syncing. */
-const API_URL="";
+const API_URL="https://script.google.com/macros/s/AKfycbzTbTDWxDzy4O62BIL34Q60IsnHWjQA2Bv-k2RdDYcJ4Zgu-TxTEGu7FAX_sbcaNsWvLA/exec";
 let db=null;const unsub={};const chains={};
 function tokenGet(){try{return localStorage.getItem("lazy:token");}catch(e){return null;}}
 function tokenSet(t){try{if(t)localStorage.setItem("lazy:token",t);else localStorage.removeItem("lazy:token");}catch(e){}}
