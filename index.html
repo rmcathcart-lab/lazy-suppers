@@ -1,0 +1,831 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lazy Suppers</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* Layout idea: one phone-width column. The week is a strip of seven rows with a
+   big day stamp on the left; a single mustard accent marks the thing to do next. */
+:root{
+  --bg:#eaf0ec; --surface:#fbfcfa; --sunk:#dfe7e2;
+  --ink:#17322b; --muted:#587068; --line:#cfdad4;
+  --accent:#e2a81f; --accent-ink:#1c2a12;
+  --good:#2b7a54; --warn:#b4531b;
+  --display:"Bricolage Grotesque","Trebuchet MS",system-ui,sans-serif;
+  --body:"Figtree",system-ui,-apple-system,"Segoe UI",sans-serif;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#0f1e1a; --surface:#172a25; --sunk:#12231f;
+    --ink:#e6efe9; --muted:#9bb0a7; --line:#2a413a;
+    --accent:#efba3c; --accent-ink:#1c2206;
+    --good:#72c79b; --warn:#f09c66;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0f1e1a; --surface:#172a25; --sunk:#12231f;
+  --ink:#e6efe9; --muted:#9bb0a7; --line:#2a413a;
+  --accent:#efba3c; --accent-ink:#1c2206;
+  --good:#72c79b; --warn:#f09c66;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.45;-webkit-text-size-adjust:100%}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.wrap{max-width:720px;margin:0 auto;padding:20px 16px 96px}
+header.top{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap}
+h1{font-family:var(--display);font-weight:800;font-size:34px;line-height:1;margin:0;letter-spacing:-.02em}
+h1 span{background:var(--accent);color:var(--accent-ink);padding:0 .22em;border-radius:6px;display:inline-block;transform:rotate(-2deg)}
+.sync{font-size:13px;color:var(--muted);display:flex;align-items:center;gap:6px}
+.sync i{width:8px;height:8px;border-radius:50%;background:var(--muted);display:inline-block}
+.sync.live i{background:var(--good)} .sync.warn i{background:var(--warn)}
+.weeknav{display:flex;align-items:center;gap:8px;margin:18px 0 10px}
+.weeknav .label{flex:1;font-family:var(--display);font-weight:700;font-size:20px}
+.weeknav .label small{display:block;font-family:var(--body);font-weight:500;font-size:13px;color:var(--muted)}
+.icon{width:40px;height:40px;border-radius:10px;border:1px solid var(--line);background:var(--surface);font-size:18px;line-height:1}
+nav.tabs{display:flex;gap:4px;background:var(--sunk);padding:4px;border-radius:12px;position:sticky;top:8px;z-index:5}
+nav.tabs a{flex:1;text-align:center;padding:9px 6px;border-radius:9px;text-decoration:none;color:var(--muted);font-weight:600;font-size:15px}
+nav.tabs a.on{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.12)}
+nav.tabs a b{font-weight:700;background:var(--accent);color:var(--accent-ink);border-radius:20px;padding:0 7px;font-size:12px;margin-left:4px}
+section{margin-top:16px}
+.btn{border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:9px 14px;font-weight:600;font-size:15px}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.small{padding:6px 10px;font-size:13px}
+.btn.ghost{background:transparent}
+.btn:disabled{opacity:.5;cursor:default}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.summary{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px 16px;display:grid;gap:10px}
+.summary .line{display:flex;justify-content:space-between;gap:12px;font-size:14px;color:var(--muted)}
+.summary .line strong{color:var(--ink);font-weight:700}
+.meter{height:10px;background:var(--sunk);border-radius:6px;overflow:hidden}
+.meter i{display:block;height:100%;background:var(--good);border-radius:6px}
+.left{font-size:14px;color:var(--muted)}
+.left b{color:var(--warn);font-weight:600}
+.days{display:grid;gap:8px;margin-top:14px}
+.day{display:grid;grid-template-columns:62px 1fr;gap:12px;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px;align-items:center}
+.day.today{border-color:var(--accent);box-shadow:inset 4px 0 0 var(--accent)}
+.stamp{font-family:var(--display);text-align:center;line-height:1}
+.stamp .d{font-weight:800;font-size:20px;text-transform:uppercase;letter-spacing:.02em}
+.stamp .n{font-size:13px;color:var(--muted);margin-top:4px;font-family:var(--body);font-variant-numeric:tabular-nums}
+.meal h3{margin:0;font-size:17px;font-weight:700;line-height:1.25}
+.meal h3 button{all:unset;cursor:pointer;text-decoration:underline;text-decoration-color:var(--line);text-underline-offset:3px}
+.meta{font-size:13px;color:var(--muted);margin-top:2px}
+.tag{display:inline-block;font-size:12px;font-weight:600;border:1px solid var(--line);border-radius:20px;padding:1px 8px;margin-right:4px;color:var(--muted)}
+.meal .row{margin-top:8px}
+.thaw{margin-top:8px;font-size:13px;line-height:1.35;border-left:3px solid var(--accent);padding:2px 0 2px 8px;color:var(--ink)}
+.thaw b{font-weight:700}
+.dcol{min-width:0}
+.off{color:var(--muted);font-size:15px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+details.set{margin-top:12px;font-size:14px}
+details.set summary{cursor:pointer;color:var(--muted);font-weight:600}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.chip{border:1px solid var(--line);background:var(--surface);border-radius:20px;padding:5px 12px;font-size:14px;font-weight:600;color:var(--muted)}
+.chip.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+h2{font-family:var(--display);font-weight:700;font-size:20px;margin:22px 0 4px}
+h2+p.sub{margin:0 0 10px;color:var(--muted);font-size:14px}
+h4{margin:14px 0 4px;font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+ul.list{list-style:none;margin:0;padding:0;background:var(--surface);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+ul.list li{display:flex;align-items:center;gap:10px;padding:10px 14px;border-top:1px solid var(--line)}
+ul.list li:first-child{border-top:0}
+ul.list .nm{flex:1;min-width:0}
+ul.list .nm small{display:block;color:var(--muted);font-size:13px;overflow-wrap:anywhere}
+ul.list .q{font-variant-numeric:tabular-nums;font-weight:600;font-size:14px;white-space:nowrap}
+ul.list a{font-size:13px;color:var(--muted)}
+ul.list li.have .nm{color:var(--muted);text-decoration:line-through}
+label.ck{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--muted);white-space:nowrap}
+input[type=checkbox]{width:20px;height:20px;accent-color:var(--good)}
+input[type=text],input[type=search]{border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:9px 12px;width:100%}
+.banner{border-radius:14px;padding:14px 16px;border:1px solid var(--line);background:var(--surface);display:grid;gap:8px}
+.banner.ready{border-color:var(--accent)}
+.banner.done{border-color:var(--good)}
+.banner strong{font-family:var(--display);font-size:17px}
+.banner p{margin:0;font-size:14px;color:var(--muted)}
+.pill{display:inline-block;font-size:12px;font-weight:700;border-radius:20px;padding:2px 9px;background:var(--sunk);color:var(--ink)}
+.pill.ready{background:var(--accent);color:var(--accent-ink)}
+.pill.done{background:var(--good);color:var(--bg)}
+.empty{color:var(--muted);font-size:14px;padding:12px 2px}
+.sheetwrap{position:fixed;inset:0;background:rgba(8,18,15,.55);display:flex;align-items:flex-end;justify-content:center;z-index:20}
+.sheet{background:var(--surface);color:var(--ink);width:100%;max-width:720px;max-height:88%;overflow:auto;border-radius:18px 18px 0 0;padding:18px 16px 28px}
+.sheet .hd{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.sheet h2{margin:0;font-size:24px;line-height:1.15}
+.sheet ol{padding-left:20px;margin:6px 0}
+.sheet ol li{margin:6px 0}
+.sheet ul.ing{list-style:none;padding:0;margin:6px 0;display:grid;gap:4px}
+.sheet ul.ing li{display:flex;justify-content:space-between;gap:12px;font-size:15px;border-bottom:1px dashed var(--line);padding-bottom:4px}
+.sheet ul.ing span{color:var(--muted);text-align:right}
+.pick{display:block;width:100%;text-align:left;border:0;border-top:1px solid var(--line);background:transparent;padding:11px 2px}
+.pick strong{display:block;font-size:16px}
+.pick em{font-style:normal;color:var(--good);font-size:13px;font-weight:600}
+.gate{position:fixed;inset:0;background:var(--bg);z-index:40;display:flex;align-items:center;justify-content:center;padding:16px}
+.gate form{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:24px 20px;width:100%;max-width:340px;display:grid;gap:12px}
+.gate h2{margin:0;font-size:24px}
+.gate p{margin:0;font-size:14px;color:var(--muted)}
+.gate input{font-size:24px;letter-spacing:.3em;text-align:center}
+.gate .err{color:var(--warn);font-weight:600;min-height:1.4em}
+body.locked .wrap{display:none}
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:12px;font-size:14px;font-weight:600;z-index:30;max-width:calc(100% - 32px)}
+.dow{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-top:14px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);text-align:center}
+.mweek{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-top:4px;border-radius:12px;padding:3px}
+.mweek.cur{background:var(--sunk)}
+.mcell{all:unset;box-sizing:border-box;cursor:pointer;background:var(--surface);border:1px solid var(--line);border-radius:9px;min-height:84px;padding:5px;display:flex;flex-direction:column;gap:3px;min-width:0}
+.mcell.out{opacity:.45}
+.mcell.today{border-color:var(--accent);box-shadow:inset 0 3px 0 var(--accent)}
+.mcell .n{font-size:12px;font-weight:700;color:var(--muted);font-variant-numeric:tabular-nums}
+.mcell .m{font-size:11.5px;line-height:1.2;font-weight:600;overflow-wrap:anywhere;hyphens:auto}
+.mcell:focus-visible{outline:3px solid var(--accent);outline-offset:1px}
+.mnote{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-top:12px;font-size:14px;color:var(--muted)}
+@media (max-width:420px){h1{font-size:28px}.day{grid-template-columns:52px 1fr;gap:10px}}
+@media (prefers-reduced-motion:no-preference){.sheet{animation:up .18s ease-out}@keyframes up{from{transform:translateY(24px)}to{transform:none}}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <h1>Lazy <span>Suppers</span></h1>
+    <div class="sync" id="sync"><i></i><span>Connecting</span></div>
+  </header>
+  <div class="weeknav">
+    <button class="icon" id="prev" aria-label="Previous week">&#8249;</button>
+    <div class="label" id="weeklabel"></div>
+    <button class="icon" id="next" aria-label="Next week">&#8250;</button>
+  </div>
+  <nav class="tabs" id="tabs">
+    <a href="#week" data-tab="week">Week</a>
+    <a href="#month" data-tab="month">Month</a>
+    <a href="#groceries" data-tab="groceries">Groceries</a>
+    <a href="#recipes" data-tab="recipes">Recipes</a>
+  </nav>
+  <main id="main"></main>
+</div>
+<div id="overlay"></div>
+<div id="gate"></div>
+<div id="toast"></div>
+<script>
+"use strict";
+/* ---------- Ingredients: id -> [name, aisle, kind(f=fresh weekly, s=staple), unit, store search] ---------- */
+const ING_RAW={
+gbeef:["Lean ground beef","Meat","f","pack","lean ground beef 450 g"],
+chthigh:["Boneless skinless chicken thighs","Meat","f","pack","boneless skinless chicken thighs"],
+chbreast:["Chicken breasts","Meat","f","pack","boneless skinless chicken breast"],
+rotis:["Rotisserie chicken","Meat","f","each","rotisserie chicken"],
+sausage:["Italian sausages (5-pack)","Meat","f","pack","mild italian sausage"],
+bacon:["Bacon","Meat","f","pack","bacon 375 g"],
+porkchop:["Pork chops","Meat","f","pack","boneless pork chops"],
+pepperoni:["Sliced pepperoni","Meat","s","pack","sliced pepperoni"],
+kielbasa:["Kielbasa ring","Meat","f","ring","kielbasa sausage ring"],
+tofu:["Extra-firm tofu","Produce","f","block","extra firm tofu"],
+pepper:["Bell peppers","Produce","f","each","bell pepper"],
+broc:["Broccoli crowns","Produce","f","each","broccoli crown"],
+spinach:["Baby spinach","Produce","f","tub","baby spinach 142 g"],
+coleslaw:["Coleslaw mix","Produce","f","bag","coleslaw mix"],
+lettuce:["Romaine hearts (3-pack)","Produce","f","pack","romaine hearts 3 pack"],
+tomato:["Grape tomatoes","Produce","f","pint","grape tomatoes"],
+cuke:["English cucumber","Produce","f","each","english cucumber"],
+carrots:["Baby carrots","Produce","f","bag","baby carrots"],
+potato:["Mini potatoes","Produce","f","bag","mini potatoes 680 g"],
+sweetpot:["Sweet potatoes","Produce","f","each","sweet potato"],
+zuke:["Zucchini","Produce","f","each","zucchini"],
+mush:["Sliced mushrooms","Produce","f","pack","sliced white mushrooms 227 g"],
+gonion:["Green onions","Produce","f","bunch","green onions"],
+lemon:["Lemons","Produce","f","each","lemon"],
+avocado:["Avocados","Produce","f","each","avocado"],
+tortilla:["Flour tortillas (10-pack)","Bakery","f","pack","flour tortillas 10 pack"],
+naan:["Naan (4-pack)","Bakery","f","pack","naan bread 4 pack"],
+buns:["Burger buns (8-pack)","Bakery","f","pack","hamburger buns 8 pack"],
+bread:["Sandwich bread","Bakery","f","loaf","sandwich bread"],
+tortellini:["Fresh cheese tortellini","Dairy","f","pack","fresh cheese tortellini"],
+cheddar:["Shredded Tex-Mex cheese","Dairy","f","bag","tex mex shredded cheese 320 g"],
+mozz:["Shredded mozzarella","Dairy","f","bag","shredded mozzarella 320 g"],
+feta:["Crumbled feta","Dairy","f","tub","crumbled feta"],
+sourcream:["Sour cream (250 mL)","Dairy","f","tub","sour cream 250 ml"],
+hummus:["Hummus","Dairy","f","tub","hummus"],
+eggs:["Eggs","Dairy","s","dozen","large eggs dozen"],
+butter:["Butter","Dairy","s","block","salted butter"],
+parm:["Grated parmesan","Dairy","s","tub","grated parmesan cheese"],
+onion:["Yellow onions","Produce","s","bag","yellow onions 3 lb"],
+garlic:["Minced garlic (jar)","Pantry","s","jar","minced garlic jar"],
+rice:["Rice","Pantry","s","bag","basmati rice"],
+spaghetti:["Spaghetti","Pantry","s","box","spaghetti"],
+penne:["Penne","Pantry","s","box","penne"],
+eggnoodle:["Egg noodles","Pantry","s","bag","egg noodles"],
+ramen:["Instant ramen noodles","Pantry","s","pack","instant ramen noodles"],
+couscous:["Couscous","Pantry","s","box","couscous"],
+gnocchi:["Shelf-stable gnocchi","Pantry","s","pack","potato gnocchi 500 g"],
+lentils:["Red lentils","Pantry","s","bag","red split lentils"],
+bbeans:["Canned black beans","Pantry","s","can","black beans can"],
+kbeans:["Canned kidney beans","Pantry","s","can","red kidney beans can"],
+chickpeas:["Canned chickpeas","Pantry","s","can","chickpeas can"],
+dtomato:["Canned diced tomatoes","Pantry","s","can","diced tomatoes can"],
+marinara:["Pasta sauce","Pantry","s","jar","marinara pasta sauce"],
+tomsoup:["Canned tomato soup","Pantry","s","can","condensed tomato soup"],
+tuna:["Canned tuna","Pantry","s","can","flaked light tuna"],
+coconut:["Coconut milk","Pantry","s","can","coconut milk can"],
+currypaste:["Thai red curry paste","Pantry","s","jar","thai red curry paste"],
+bcsauce:["Butter chicken sauce","Pantry","s","jar","butter chicken cooking sauce"],
+pesto:["Basil pesto","Pantry","s","jar","basil pesto"],
+salsa:["Salsa","Pantry","s","jar","salsa medium"],
+broth:["Chicken broth","Pantry","s","carton","chicken broth 900 ml"],
+soy:["Soy sauce","Pantry","s","bottle","soy sauce"],
+teriyaki:["Teriyaki sauce","Pantry","s","bottle","teriyaki sauce"],
+bbq:["BBQ sauce","Pantry","s","bottle","bbq sauce"],
+honey:["Honey","Pantry","s","bottle","liquid honey"],
+dijon:["Dijon mustard","Pantry","s","jar","dijon mustard"],
+mayo:["Mayonnaise","Pantry","s","jar","mayonnaise"],
+caesar:["Caesar dressing","Pantry","s","bottle","caesar dressing"],
+sriracha:["Sriracha","Pantry","s","bottle","sriracha"],
+pb:["Peanut butter","Pantry","s","jar","smooth peanut butter"],
+oil:["Olive oil","Pantry","s","bottle","olive oil"],
+taco:["Taco seasoning","Pantry","s","jar","taco seasoning"],
+chili:["Chili powder","Pantry","s","jar","chili powder"],
+cumin:["Ground cumin","Pantry","s","jar","ground cumin"],
+italian:["Italian seasoning","Pantry","s","jar","italian seasoning"],
+peas:["Frozen peas","Frozen","s","bag","frozen peas"],
+corn:["Frozen corn","Frozen","s","bag","frozen corn"],
+stirfry:["Frozen stir-fry vegetables","Frozen","s","bag","frozen stir fry vegetables"],
+fries:["Frozen fries","Frozen","s","bag","frozen french fries"],
+perogies:["Frozen perogies","Frozen","s","bag","frozen perogies potato cheddar"],
+salmon:["Frozen salmon fillets","Frozen","s","bag","frozen salmon fillets"],
+shrimp:["Frozen peeled shrimp","Frozen","s","bag","frozen raw peeled shrimp"]
+};
+const ING={};for(const k in ING_RAW){const a=ING_RAW[k];ING[k]={id:k,name:a[0],aisle:a[1],kind:a[2],unit:a[3],search:a[4]};}
+const AISLES=["Produce","Meat","Dairy","Bakery","Pantry","Frozen"];
+
+/* ---------- Recipes: dinner for two, usually with a lunch left over ---------- */
+const RECIPES=[];
+function R(id,name,cuisine,protein,mins,method,ing,steps){RECIPES.push({id,name,cuisine,protein,mins,method,ing,steps});}
+R("sausage-peppers","Sheet-pan sausage, peppers and potatoes","Italian","pork",35,"Sheet pan",
+ [["sausage",.6,"3 sausages"],["pepper",2,"2, in strips"],["potato",1,"1 bag, halved"],["onion",0,"1, in wedges"],["oil",0,"2 tbsp"],["italian",0,"1 tsp"]],
+ ["Heat oven to 425°F. Toss potatoes, peppers and onion with oil, Italian seasoning and salt on a sheet pan.","Nestle the sausages on top.","Roast 30 minutes, turning the sausages once."]);
+R("beef-tacos","Ground beef tacos","Mexican","beef",20,"One pan",
+ [["gbeef",1,"1 pack"],["tortilla",.5,"5 tortillas"],["cheddar",.5,"1 cup"],["lettuce",.33,"1 heart, shredded"],["sourcream",.5,"1/2 tub"],["salsa",0,"to serve"],["taco",0,"2 tbsp"]],
+ ["Brown the beef, drain, then stir in taco seasoning and a splash of water for 2 minutes.","Warm the tortillas in a dry pan or the microwave.","Build tacos with cheese, lettuce, salsa and sour cream."]);
+R("chicken-quesadillas","Chicken and black bean quesadillas","Mexican","chicken",15,"One pan",
+ [["rotis",.5,"2 cups, shredded"],["tortilla",.4,"4 tortillas"],["cheddar",.5,"1 cup"],["bbeans",0,"1/2 can, rinsed"],["sourcream",.5,"1/2 tub"],["salsa",0,"to serve"]],
+ ["Scatter cheese, chicken and beans over half of each tortilla and fold.","Cook in a dry pan over medium heat, 2 to 3 minutes a side, until crisp.","Cut into wedges. Serve with salsa and sour cream."]);
+R("butter-chicken","Shortcut butter chicken","Indian","chicken",25,"One pan",
+ [["chthigh",1,"1 pack, in chunks"],["naan",.5,"2 naan"],["bcsauce",0,"1 jar"],["rice",0,"1 cup"],["peas",0,"1 cup"]],
+ ["Start the rice.","Brown the chicken in a little oil for 5 minutes. Pour in the sauce and simmer 12 minutes.","Stir in the peas for the last 2 minutes. Serve with rice and warm naan."]);
+R("chickpea-curry","Coconut chicken and chickpea curry","Indian","chicken",25,"One pot",
+ [["chthigh",1,"1 pack, in chunks"],["spinach",1,"1 tub"],["naan",.5,"2 naan"],["chickpeas",0,"1 can, rinsed"],["coconut",0,"1 can"],["currypaste",0,"2 tbsp"],["rice",0,"1 cup"]],
+ ["Start the rice.","Brown the chicken with the curry paste for 5 minutes, then add coconut milk and chickpeas. Simmer 12 minutes.","Stir in the spinach until wilted. Serve with rice and naan."]);
+R("pesto-gnocchi","Sausage and pesto gnocchi","Italian","pork",20,"One pan",
+ [["sausage",.4,"2 sausages, casings off"],["spinach",.5,"2 big handfuls"],["tomato",.5,"1 cup, halved"],["gnocchi",0,"1 pack"],["pesto",0,"3 tbsp"],["parm",0,"to serve"]],
+ ["Brown the sausage meat in a pan, breaking it up, then lift it out.","Fry the gnocchi straight from the pack in the same pan until golden, about 6 minutes.","Add tomatoes, spinach and the sausage for 2 minutes. Off the heat, stir in the pesto and top with parmesan."]);
+R("tortellini-soup","Sausage tortellini soup","Italian","pork",25,"One pot",
+ [["sausage",.4,"2 sausages, casings off"],["tortellini",1,"1 pack"],["spinach",.5,"2 big handfuls"],["dtomato",0,"1 can"],["broth",0,"1 carton"],["parm",0,"to serve"]],
+ ["Brown the sausage meat in a pot, breaking it up.","Add tomatoes and broth and bring to a boil.","Add the tortellini for 4 minutes, then stir in the spinach. Top with parmesan."]);
+R("fried-rice","Bacon and egg fried rice","Asian","eggs",20,"One pan",
+ [["bacon",.5,"6 slices, chopped"],["gonion",.5,"3, sliced"],["eggs",0,"3"],["rice",0,"3 cups cooked (day-old is best)"],["peas",0,"1 cup"],["soy",0,"2 tbsp"]],
+ ["Fry the bacon until crisp. Push aside and scramble the eggs in the same pan.","Add rice and peas and stir-fry on high heat for 4 minutes.","Season with soy sauce and top with green onions."]);
+R("teriyaki-bowls","Teriyaki chicken rice bowls","Asian","chicken",25,"One pan",
+ [["chthigh",1,"1 pack, in strips"],["broc",1,"1 crown, in florets"],["gonion",.5,"3, sliced"],["teriyaki",0,"1/3 cup"],["rice",0,"1 cup"]],
+ ["Start the rice.","Brown the chicken for 6 minutes. Add the broccoli and a splash of water, cover for 3 minutes.","Pour in the teriyaki sauce and bubble for 2 minutes. Serve over rice with green onions."]);
+R("honey-garlic-chicken","Sheet-pan honey garlic chicken and broccoli","Asian","chicken",30,"Sheet pan",
+ [["chthigh",1,"1 pack"],["broc",1,"1 crown, in florets"],["honey",0,"2 tbsp"],["soy",0,"2 tbsp"],["garlic",0,"2 tsp"],["rice",0,"1 cup"]],
+ ["Heat oven to 425°F and start the rice.","Mix honey, soy and garlic. Toss with the chicken on a sheet pan and roast 12 minutes.","Add the broccoli, toss in the pan juices, and roast 12 minutes more."]);
+R("spaghetti-meat-sauce","Spaghetti with meat sauce","Italian","beef",25,"One pot",
+ [["gbeef",1,"1 pack"],["onion",0,"1, diced"],["marinara",0,"1 jar"],["spaghetti",0,"1/2 box"],["parm",0,"to serve"]],
+ ["Boil the spaghetti.","Brown the beef with the onion, drain, then add the sauce and simmer 10 minutes.","Toss with the pasta and top with parmesan."]);
+R("chili","One-pot chili","American","beef",35,"One pot",
+ [["gbeef",1,"1 pack"],["pepper",1,"1, diced"],["cheddar",.25,"1/2 cup"],["sourcream",.5,"1/2 tub"],["onion",0,"1, diced"],["kbeans",0,"1 can, rinsed"],["bbeans",0,"1 can, rinsed"],["dtomato",0,"1 can"],["chili",0,"2 tbsp"],["cumin",0,"1 tsp"]],
+ ["Brown the beef with the onion and pepper.","Add beans, tomatoes, spices and half a can of water. Simmer 20 minutes.","Serve topped with cheese and sour cream. Freezes well."]);
+R("naan-pizzas","Pepperoni naan pizzas","Italian","pork",15,"Sheet pan",
+ [["naan",.5,"2 naan"],["mozz",.5,"1 1/2 cups"],["pepper",1,"1, thinly sliced"],["mush",.5,"1 cup"],["pepperoni",0,"about 20 slices"],["marinara",0,"1/2 cup"],["italian",0,"1 tsp"]],
+ ["Heat oven to 425°F.","Spread sauce on the naan and top with cheese, pepperoni, pepper, mushrooms and Italian seasoning.","Bake 10 minutes until bubbling."]);
+R("blt-wraps","BLT wraps","American","pork",15,"One pan",
+ [["bacon",.5,"6 slices"],["lettuce",.33,"1 heart, shredded"],["tomato",.5,"1 cup, halved"],["tortilla",.2,"2 tortillas"],["mayo",0,"2 tbsp"]],
+ ["Cook the bacon until crisp.","Spread mayo on the tortillas and pile on lettuce, tomatoes and bacon.","Roll up and cut in half."]);
+R("breakfast-tacos","Bacon and egg breakfast tacos","Mexican","eggs",15,"One pan",
+ [["bacon",.5,"6 slices, chopped"],["tortilla",.4,"4 tortillas"],["cheddar",.25,"1/2 cup"],["eggs",0,"5"],["salsa",0,"to serve"]],
+ ["Fry the bacon until crisp, then pour off most of the fat.","Scramble the eggs in the same pan.","Spoon into warm tortillas with cheese and salsa."]);
+R("greek-chicken-flatbreads","Greek chicken flatbreads","Mediterranean","chicken",10,"No cook",
+ [["rotis",.5,"2 cups, shredded"],["cuke",.5,"1/2, diced"],["tomato",.5,"1 cup, halved"],["feta",.5,"1/2 tub"],["hummus",.5,"1/2 tub"],["naan",.5,"2 naan"]],
+ ["Warm the naan.","Spread with hummus.","Top with chicken, cucumber, tomatoes and feta."]);
+R("chickpea-salad","Greek chicken and chickpea salad","Mediterranean","chicken",10,"No cook",
+ [["rotis",.5,"2 cups, shredded"],["cuke",.5,"1/2, diced"],["tomato",.5,"1 cup, halved"],["pepper",1,"1, diced"],["feta",.5,"1/2 tub"],["hummus",.5,"1/2 tub"],["naan",.5,"2 naan"],["lemon",1,"1, juiced"],["chickpeas",0,"1 can, rinsed"],["oil",0,"2 tbsp"]],
+ ["Toss chicken, chickpeas, cucumber, tomatoes, pepper and feta with lemon juice, oil, salt and pepper.","Serve with warm naan and hummus."]);
+R("salmon-traybake","Sheet-pan salmon, potatoes and broccoli","American","seafood",30,"Sheet pan",
+ [["potato",1,"1 bag, halved"],["broc",1,"1 crown, in florets"],["lemon",1,"1"],["salmon",0,"2 fillets, thawed"],["oil",0,"2 tbsp"]],
+ ["Heat oven to 425°F. Roast the potatoes with oil and salt for 15 minutes.","Add the broccoli and salmon to the pan. Roast 12 minutes more.","Squeeze lemon over everything."]);
+R("shrimp-pasta","Garlic butter shrimp pasta","Italian","seafood",20,"One pot",
+ [["spinach",.5,"2 big handfuls"],["lemon",1,"1, juiced"],["shrimp",0,"1/2 bag, thawed"],["spaghetti",0,"1/2 box"],["butter",0,"3 tbsp"],["garlic",0,"1 tbsp"],["parm",0,"to serve"]],
+ ["Boil the spaghetti and save half a cup of the water.","Melt butter with garlic and cook the shrimp 3 minutes until pink.","Add pasta, spinach, lemon juice and a splash of pasta water. Toss and top with parmesan."]);
+R("tuna-melts","Tuna melts with tomato soup","American","seafood",15,"One pan",
+ [["bread",.3,"4 slices"],["cheddar",.5,"1 cup"],["tuna",0,"2 cans, drained"],["mayo",0,"3 tbsp"],["tomsoup",0,"1 can"]],
+ ["Heat the soup.","Mix tuna and mayo, pile onto bread and top with cheese.","Broil open-faced for 3 minutes until bubbling."]);
+R("grilled-cheese","Bacon grilled cheese and tomato soup","American","pork",20,"One pan",
+ [["bacon",.5,"6 slices"],["bread",.3,"4 slices"],["cheddar",.5,"1 cup"],["butter",0,"2 tbsp"],["tomsoup",0,"1 can"]],
+ ["Cook the bacon until crisp and heat the soup.","Butter the bread and fill with cheese and bacon.","Fry over medium-low heat, 3 minutes a side."]);
+R("burrito-bowls","Beef and black bean burrito bowls","Mexican","beef",20,"One pan",
+ [["gbeef",1,"1 pack"],["avocado",1,"1, sliced"],["cheddar",.25,"1/2 cup"],["sourcream",.5,"1/2 tub"],["bbeans",0,"1 can, rinsed"],["corn",0,"1 cup"],["rice",0,"1 cup"],["salsa",0,"1/2 cup"],["taco",0,"2 tbsp"]],
+ ["Start the rice.","Brown the beef and drain. Stir in taco seasoning, beans, corn and a splash of water for 3 minutes.","Build bowls with rice, the beef mix, cheese, avocado, salsa and sour cream."]);
+R("sweet-potato-tacos","Beef and sweet potato tacos","Mexican","beef",30,"Sheet pan",
+ [["gbeef",1,"1 pack"],["sweetpot",2,"2, in small cubes"],["tortilla",.4,"4 tortillas"],["feta",.5,"1/2 tub"],["sourcream",.5,"1/2 tub"],["taco",0,"2 tbsp"],["oil",0,"2 tbsp"],["salsa",0,"to serve"]],
+ ["Heat oven to 425°F. Toss sweet potato with oil and half the taco seasoning and roast 25 minutes.","Brown the beef, drain, and stir in the rest of the seasoning with a splash of water.","Serve both in warm tortillas with feta, salsa and sour cream."]);
+R("thai-red-curry","Thai red curry chicken","Thai","chicken",25,"One pot",
+ [["chthigh",1,"1 pack, in strips"],["pepper",1,"1, sliced"],["coconut",0,"1 can"],["currypaste",0,"2 tbsp"],["stirfry",0,"2 cups"],["rice",0,"1 cup"]],
+ ["Start the rice.","Fry the curry paste for a minute, add the chicken and brown for 4 minutes.","Add coconut milk, pepper and frozen vegetables. Simmer 10 minutes."]);
+R("peanut-noodles","Peanut chicken noodles with crunchy slaw","Asian","chicken",15,"One pot",
+ [["rotis",.5,"2 cups, shredded"],["coleslaw",.5,"3 cups"],["gonion",.5,"3, sliced"],["ramen",0,"3 blocks, no seasoning"],["pb",0,"3 tbsp"],["soy",0,"2 tbsp"],["honey",0,"1 tbsp"],["sriracha",0,"to taste"]],
+ ["Cook the noodles and drain, saving a little of the water.","Whisk peanut butter, soy, honey, sriracha and 3 tbsp of the hot water.","Toss noodles, chicken, slaw and sauce together. Top with green onions."]);
+R("egg-roll-bowl","Egg roll in a bowl","Asian","beef",15,"One pan",
+ [["gbeef",1,"1 pack"],["coleslaw",1,"1 bag"],["gonion",.5,"3, sliced"],["garlic",0,"2 tsp"],["soy",0,"3 tbsp"],["sriracha",0,"to taste"],["rice",0,"1 cup"]],
+ ["Start the rice.","Brown the beef with the garlic and drain.","Add the slaw and soy sauce and stir-fry 4 minutes until just soft. Top with green onions and sriracha."]);
+R("bbq-chicken-sandwiches","BBQ pulled chicken sandwiches with slaw","American","chicken",15,"One pot",
+ [["rotis",.5,"2 cups, shredded"],["buns",.5,"4 buns"],["coleslaw",.5,"3 cups"],["bbq",0,"1/2 cup"],["mayo",0,"2 tbsp"]],
+ ["Warm the chicken with the BBQ sauce in a pot.","Toss the slaw with mayo, salt and pepper.","Pile chicken and slaw onto the buns."]);
+R("sloppy-joes","Sloppy joes","American","beef",20,"One pan",
+ [["gbeef",1,"1 pack"],["buns",.5,"4 buns"],["coleslaw",.5,"3 cups"],["onion",0,"1, diced"],["bbq",0,"1/2 cup"],["mayo",0,"2 tbsp"]],
+ ["Brown the beef with the onion and drain.","Stir in the BBQ sauce and simmer 5 minutes.","Spoon onto buns. Toss the slaw with mayo and serve on the side."]);
+R("smash-burgers","Smash burgers and oven fries","American","beef",25,"One pan",
+ [["gbeef",1,"1 pack, in 4 balls"],["buns",.5,"4 buns"],["cheddar",.25,"1/2 cup"],["lettuce",.33,"1 heart"],["fries",0,"1/2 bag"],["mayo",0,"to serve"]],
+ ["Bake the fries as the bag says.","Get a pan very hot. Smash each beef ball flat, salt it, and cook 2 minutes a side, adding cheese after the flip.","Serve on buns with lettuce and mayo."]);
+R("kielbasa-perogies","Kielbasa and perogies","Prairie","pork",20,"One pan",
+ [["kielbasa",1,"1 ring, sliced"],["sourcream",.5,"1/2 tub"],["perogies",0,"1/2 bag"],["onion",0,"1, sliced"],["butter",0,"2 tbsp"]],
+ ["Boil the perogies for 4 minutes and drain.","Fry the onion and kielbasa in butter until browned.","Add the perogies and fry until golden. Serve with sour cream."]);
+R("kielbasa-cabbage","Kielbasa, cabbage and potato skillet","Prairie","pork",25,"One pan",
+ [["kielbasa",1,"1 ring, sliced"],["coleslaw",1,"1 bag"],["potato",.5,"1/2 bag, quartered"],["dijon",0,"1 tbsp"],["butter",0,"1 tbsp"]],
+ ["Fry the potatoes in butter with a lid on for 10 minutes.","Add the kielbasa and brown for 4 minutes.","Add the slaw and mustard and cook 4 minutes until wilted."]);
+R("pork-chops","Honey mustard pork chops with potatoes and carrots","American","pork",35,"Sheet pan",
+ [["porkchop",1,"1 pack"],["potato",.5,"1/2 bag, halved"],["carrots",.5,"1/2 bag"],["dijon",0,"2 tbsp"],["honey",0,"1 tbsp"],["oil",0,"1 tbsp"]],
+ ["Heat oven to 425°F. Roast potatoes and carrots with oil and salt for 15 minutes.","Mix mustard and honey and brush over the chops.","Add the chops to the pan and roast 15 minutes more."]);
+R("salsa-chicken","Slow-cooker salsa chicken bowls","Mexican","chicken",10,"Slow cooker",
+ [["chbreast",1,"1 pack"],["cheddar",.25,"1/2 cup"],["sourcream",.5,"1/2 tub"],["salsa",0,"1 jar"],["taco",0,"1 tbsp"],["bbeans",0,"1 can, rinsed"],["corn",0,"1 cup"],["rice",0,"1 cup"]],
+ ["Put chicken, salsa, taco seasoning, beans and corn in the slow cooker. Cook on low 6 hours or high 3.","Shred the chicken with two forks.","Serve over rice with cheese and sour cream."]);
+R("tortellini-bake","Sausage tortellini bake","Italian","pork",30,"One pan",
+ [["sausage",.6,"3 sausages, casings off"],["tortellini",1,"1 pack"],["spinach",.5,"2 big handfuls"],["mozz",.5,"1 1/2 cups"],["marinara",0,"1 jar"]],
+ ["Heat oven to 400°F. Brown the sausage meat in an oven-safe pan, breaking it up.","Stir in uncooked tortellini, sauce, spinach and half a cup of water.","Top with mozzarella, cover with foil for 15 minutes, then uncover for 5."]);
+R("caesar-wraps","Chicken Caesar wraps","American","chicken",10,"No cook",
+ [["rotis",.5,"2 cups, shredded"],["lettuce",.33,"1 heart, chopped"],["tortilla",.2,"2 tortillas"],["caesar",0,"3 tbsp"],["parm",0,"2 tbsp"]],
+ ["Toss chicken, lettuce, dressing and parmesan.","Roll up in the tortillas."]);
+R("chicken-noodle-soup","Shortcut chicken noodle soup","American","chicken",20,"One pot",
+ [["rotis",.5,"2 cups, shredded"],["carrots",.5,"1/2 bag, sliced"],["onion",0,"1, diced"],["broth",0,"1 carton"],["eggnoodle",0,"2 cups"],["peas",0,"1/2 cup"]],
+ ["Soften the onion and carrots in a pot for 5 minutes.","Add broth and 2 cups of water and bring to a boil. Add the noodles for 6 minutes.","Stir in chicken and peas to heat through."]);
+R("red-lentil-dal","Chicken and red lentil dal","Indian","chicken",30,"One pot",
+ [["chthigh",1,"1 pack, in chunks"],["spinach",.5,"2 big handfuls"],["naan",.5,"2 naan"],["lentils",0,"1 cup"],["coconut",0,"1 can"],["dtomato",0,"1 can"],["currypaste",0,"1 tbsp"],["rice",0,"1 cup"]],
+ ["Start the rice.","Brown the chicken with the curry paste for 5 minutes. Add lentils, coconut milk, tomatoes and a cup of water and simmer 18 minutes.","Stir in the spinach. Serve with rice and naan."]);
+R("tofu-stir-fry","Chicken and vegetable stir-fry","Asian","chicken",20,"One pan",
+ [["chbreast",1,"1 pack, in strips"],["gonion",.5,"3, sliced"],["stirfry",0,"3 cups"],["teriyaki",0,"1/3 cup"],["rice",0,"1 cup"]],
+ ["Start the rice.","Fry the chicken in oil until browned and cooked through, about 6 minutes.","Add the frozen vegetables for 5 minutes, then the sauce for 2. Top with green onions."]);
+R("eggs-in-tomato","Sausage and eggs baked in tomato sauce","Mediterranean","eggs",25,"One pan",
+ [["sausage",.4,"2 sausages, casings off"],["pepper",1,"1, diced"],["feta",.5,"1/2 tub"],["naan",.5,"2 naan"],["eggs",0,"4"],["marinara",0,"1 1/2 cups"],["cumin",0,"1 tsp"]],
+ ["Brown the sausage meat with the pepper and cumin for 6 minutes. Add the sauce and bring to a simmer.","Make four dips and crack in the eggs. Cover and cook 6 minutes.","Scatter with feta and scoop up with warm naan."]);
+R("loaded-potatoes","Loaded potato and broccoli skillet","American","pork",25,"One pan",
+ [["potato",1,"1 bag, halved"],["bacon",.5,"6 slices, chopped"],["broc",1,"1 crown, small florets"],["cheddar",.5,"1 cup"],["sourcream",.5,"1/2 tub"],["gonion",.5,"3, sliced"]],
+ ["Microwave the potatoes in a covered bowl with a splash of water for 6 minutes.","Fry the bacon until crisp. Add potatoes and broccoli and fry 8 minutes.","Top with cheese, cover to melt, then add sour cream and green onions."]);
+R("mushroom-pasta","Bacon, mushroom and spinach pasta","Italian","pork",20,"One pot",
+ [["bacon",.5,"6 slices, chopped"],["mush",1,"1 pack"],["spinach",.5,"2 big handfuls"],["penne",0,"1/2 box"],["garlic",0,"2 tsp"],["parm",0,"1/2 cup"]],
+ ["Boil the penne and save half a cup of the water.","Fry the bacon until crisp, then brown the mushrooms in the fat and add the garlic.","Add pasta, spinach, parmesan and a splash of pasta water. Toss until glossy."]);
+R("pesto-chicken","Baked pesto chicken with couscous","Italian","chicken",30,"Sheet pan",
+ [["chbreast",1,"1 pack"],["tomato",.5,"1 cup"],["mozz",.5,"1 1/2 cups"],["pesto",0,"3 tbsp"],["couscous",0,"1 cup"]],
+ ["Heat oven to 400°F. Spread pesto over the chicken in a baking dish and scatter tomatoes around it.","Bake 20 minutes, top with mozzarella, and bake 5 more.","Pour 1 cup of boiling water over the couscous, cover 5 minutes, and fluff."]);
+R("honey-mustard-chicken","Honey mustard chicken with carrots and potatoes","American","chicken",35,"Sheet pan",
+ [["chthigh",1,"1 pack"],["carrots",.5,"1/2 bag"],["potato",.5,"1/2 bag, halved"],["dijon",0,"2 tbsp"],["honey",0,"2 tbsp"],["oil",0,"1 tbsp"]],
+ ["Heat oven to 425°F.","Toss everything together on a sheet pan with salt and pepper.","Roast 30 minutes, turning once."]);
+R("beef-broccoli","Ground beef and broccoli","Asian","beef",20,"One pan",
+ [["gbeef",1,"1 pack"],["broc",1,"1 crown, in florets"],["soy",0,"3 tbsp"],["honey",0,"1 tbsp"],["garlic",0,"2 tsp"],["rice",0,"1 cup"]],
+ ["Start the rice.","Brown the beef with the garlic and drain.","Add broccoli, soy, honey and a splash of water. Cover and cook 4 minutes."]);
+R("couscous-bowls","Chicken, zucchini and chickpea couscous bowls","Mediterranean","chicken",30,"Sheet pan",
+ [["chthigh",1,"1 pack"],["zuke",2,"2, in half-moons"],["feta",.5,"1/2 tub"],["hummus",.5,"1/2 tub"],["lemon",1,"1, juiced"],["chickpeas",0,"1 can, rinsed"],["couscous",0,"1 cup"],["oil",0,"2 tbsp"],["cumin",0,"1 tsp"]],
+ ["Heat oven to 425°F. Roast chicken, zucchini and chickpeas with oil, cumin and salt for 25 minutes.","Pour 1 cup of boiling water over the couscous, cover 5 minutes, and fluff with lemon juice.","Slice the chicken. Build bowls with couscous, the roasted pan, feta and a spoonful of hummus."]);
+R("frittata","Bacon and potato clean-out-the-fridge frittata","American","eggs",25,"One pan",
+ [["bacon",.5,"6 slices, chopped"],["potato",.5,"1/2 bag, sliced thin"],["cheddar",.25,"1/2 cup"],["eggs",0,"6"]],
+ ["Fry the bacon in an oven-safe pan until crisp. Add the potatoes and fry 8 minutes, plus any leftover vegetables you want gone.","Pour in the beaten eggs and top with cheese.","Cook 3 minutes on the stove, then broil 3 minutes until set."]);
+R("salmon-rice-bowls","Salmon rice bowls","Asian","seafood",20,"One pan",
+ [["cuke",.5,"1/2, sliced"],["avocado",1,"1, sliced"],["gonion",.5,"3, sliced"],["salmon",0,"2 fillets, thawed"],["rice",0,"1 cup"],["soy",0,"2 tbsp"],["mayo",0,"2 tbsp"],["sriracha",0,"to taste"]],
+ ["Start the rice.","Pan-fry the salmon 4 minutes a side, then flake.","Build bowls with rice, salmon, cucumber and avocado. Drizzle with soy and sriracha mayo."]);
+R("shrimp-tacos","Shrimp tacos with slaw","Mexican","seafood",20,"One pan",
+ [["tortilla",.4,"4 tortillas"],["coleslaw",.5,"3 cups"],["avocado",1,"1, sliced"],["shrimp",0,"1/2 bag, thawed"],["taco",0,"1 tbsp"],["mayo",0,"2 tbsp"],["sriracha",0,"to taste"]],
+ ["Toss the slaw with mayo and a little sriracha.","Toss shrimp with taco seasoning and fry 3 minutes until pink.","Serve in warm tortillas with slaw and avocado."]);
+R("taco-rice","Cheesy taco rice skillet","Mexican","beef",25,"One pan",
+ [["gbeef",1,"1 pack"],["cheddar",.5,"1 cup"],["rice",0,"1 cup"],["salsa",0,"1 cup"],["corn",0,"1 cup"],["taco",0,"2 tbsp"]],
+ ["Brown the beef and drain.","Add rice, salsa, corn, taco seasoning and 2 cups of water. Cover and simmer 18 minutes.","Top with cheese and cover to melt."]);
+R("sausage-penne","Sausage and pepper penne","Italian","pork",25,"One pot",
+ [["sausage",.4,"2 sausages, casings off"],["pepper",1,"1, diced"],["penne",0,"1/2 box"],["marinara",0,"1 jar"],["parm",0,"to serve"]],
+ ["Boil the penne.","Brown the sausage meat with the pepper.","Add the sauce, simmer 5 minutes, and toss with the pasta."]);
+const RB={};RECIPES.forEach(r=>RB[r.id]=r);
+const SHORT={"sausage-peppers":"Sausage & peppers","beef-tacos":"Beef tacos","chicken-quesadillas":"Quesadillas","butter-chicken":"Butter chicken","chickpea-curry":"Chicken curry","pesto-gnocchi":"Sausage gnocchi","tortellini-soup":"Tortellini soup","fried-rice":"Fried rice","teriyaki-bowls":"Teriyaki bowls","honey-garlic-chicken":"Honey garlic chicken","spaghetti-meat-sauce":"Spaghetti","chili":"Chili","naan-pizzas":"Pepperoni pizzas","blt-wraps":"BLT wraps","breakfast-tacos":"Breakfast tacos","greek-chicken-flatbreads":"Greek flatbreads","chickpea-salad":"Greek chicken salad","salmon-traybake":"Salmon traybake","shrimp-pasta":"Shrimp pasta","tuna-melts":"Tuna melts","grilled-cheese":"Bacon grilled cheese","burrito-bowls":"Beef burrito bowls","sweet-potato-tacos":"Beef tacos, sweet potato","thai-red-curry":"Thai red curry","peanut-noodles":"Peanut chicken noodles","egg-roll-bowl":"Egg roll bowl","bbq-chicken-sandwiches":"BBQ chicken buns","sloppy-joes":"Sloppy joes","smash-burgers":"Smash burgers","kielbasa-perogies":"Kielbasa & perogies","kielbasa-cabbage":"Kielbasa skillet","pork-chops":"Pork chops","salsa-chicken":"Salsa chicken","tortellini-bake":"Sausage tortellini bake","caesar-wraps":"Caesar wraps","chicken-noodle-soup":"Chicken noodle soup","red-lentil-dal":"Chicken dal","tofu-stir-fry":"Chicken stir-fry","eggs-in-tomato":"Sausage & eggs","loaded-potatoes":"Loaded potatoes","mushroom-pasta":"Bacon mushroom pasta","pesto-chicken":"Pesto chicken","honey-mustard-chicken":"Honey mustard chicken","beef-broccoli":"Beef & broccoli","couscous-bowls":"Chicken couscous bowls","frittata":"Bacon frittata","salmon-rice-bowls":"Salmon bowls","shrimp-tacos":"Shrimp tacos","taco-rice":"Taco rice","sausage-penne":"Sausage penne"};
+const PROTEINS=[["all","All"],["chicken","Chicken"],["beef","Beef"],["pork","Pork"],["seafood","Seafood"],["eggs","Eggs"]];
+
+/* ---------- Dates ---------- */
+const DAYS=["mon","tue","wed","thu","fri","sat","sun"];
+const DAYNAME={mon:"Monday",tue:"Tuesday",wed:"Wednesday",thu:"Thursday",fri:"Friday",sat:"Saturday",sun:"Sunday"};
+const MONTHS=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const pad=n=>String(n).padStart(2,"0");
+const iso=d=>d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate());
+function parse(s){const p=s.split("-").map(Number);return new Date(p[0],p[1]-1,p[2]);}
+function mondayOf(d){const x=new Date(d.getFullYear(),d.getMonth(),d.getDate());x.setDate(x.getDate()-((x.getDay()+6)%7));return x;}
+function addDays(s,n){const d=parse(s);d.setDate(d.getDate()+n);return iso(d);}
+const THISWEEK=iso(mondayOf(new Date()));
+const TODAY=iso(new Date());
+
+/* ---------- State ---------- */
+const DEFAULT_PREFS={cookDays:["mon","tue","wed","thu","sun"],hidden:{},have:{},regulars:[]};
+const S={week:THISWEEK,tab:"week",days:{},prefs:JSON.parse(JSON.stringify(DEFAULT_PREFS)),order:null,recent:[],
+  sync:"connecting",sheet:null,filter:"all",q:"",loaded:false,weekHave:{},all:{},month:THISWEEK.slice(0,7)+"-01"};
+function prefs(){const p=S.prefs||{};return{cookDays:Array.isArray(p.cookDays)?p.cookDays:DEFAULT_PREFS.cookDays,hidden:p.hidden||{},have:p.have||{},regulars:Array.isArray(p.regulars)?p.regulars:[]};}
+
+/* ---------- Storage: shared database when available, this browser otherwise ---------- */
+/* Paste the Apps Script web app URL (ends in /exec) here to turn on PIN sign-in and syncing. */
+const API_URL="";
+let db=null;const unsub={};const chains={};
+function tokenGet(){try{return localStorage.getItem("lazy:token");}catch(e){return null;}}
+function tokenSet(t){try{if(t)localStorage.setItem("lazy:token",t);else localStorage.removeItem("lazy:token");}catch(e){}}
+async function api(body){const r=await fetch(API_URL,{method:"POST",body:JSON.stringify(body)});return r.json();}
+/* Talks to the Apps Script backend, shaped like the document store the rest of the page expects. */
+function makeRemote(token){
+  const docs={},raw={},docL={},colL={},pending={};let dead=false,ready=false,busy=false;const waiters=[];
+  const snap=path=>({id:path.split("/").pop(),exists:path in docs,data:()=>docs[path],metadata:{fromCache:false}});
+  const colSnap=col=>({docs:Object.keys(docs).filter(k=>k.indexOf(col+"/")===0).sort().map(snap)});
+  function emit(path){(docL[path]||[]).slice().forEach(f=>f(snap(path)));const col=path.split("/")[0];(colL[col]||[]).slice().forEach(f=>f(colSnap(col)));}
+  async function call(body){const j=await api(Object.assign({token},body));
+    if(j.error==="auth"){dead=true;tokenSet(null);showGate("This device was signed out. Enter the PIN again.");throw{code:"revoked"};}
+    if(j.error)throw{code:j.error};return j;}
+  async function sync(){
+    if(dead||busy)return;busy=true;
+    try{const j=await call({op:"sync"});const changed=[];
+      Object.keys(j.docs).forEach(k=>{if(pending[k])return;const s=JSON.stringify(j.docs[k]);if(raw[k]!==s){raw[k]=s;docs[k]=j.docs[k];changed.push(k);}});
+      if(!ready){ready=true;Object.keys(docL).forEach(k=>docL[k].slice().forEach(f=>f(snap(k))));Object.keys(colL).forEach(c=>colL[c].slice().forEach(f=>f(colSnap(c))));waiters.splice(0).forEach(f=>f());}
+      else changed.forEach(emit);
+    }catch(e){}finally{busy=false;}
+  }
+  function listen(map,key,fn,make){(map[key]=map[key]||[]).push(fn);if(ready)setTimeout(()=>{if(map[key].indexOf(fn)>=0)fn(make(key));},0);return()=>{const i=map[key].indexOf(fn);if(i>=0)map[key].splice(i,1);};}
+  setInterval(()=>{if(!document.hidden)sync();},25000);
+  document.addEventListener("visibilitychange",()=>{if(!document.hidden)sync();});
+  sync();
+  return{
+    doc(path){return{
+      set(data){docs[path]=data;raw[path]=JSON.stringify(data);pending[path]=(pending[path]||0)+1;
+        return call({op:"set",path,data}).finally(()=>{pending[path]--;});},
+      get(){return ready?Promise.resolve(snap(path)):new Promise(res=>waiters.push(()=>res(snap(path))));},
+      onSnapshot(fn){return listen(docL,path,fn,snap);}
+    };},
+    collection(col){return{onSnapshot(fn){return listen(colL,col,fn,colSnap);}};}
+  };
+}
+function showGate(msg){
+  document.body.classList.add("locked");
+  $("gate").innerHTML='<div class="gate"><form id="pinform"><h2>Lazy Suppers</h2><p>Enter the PIN to open the meal plan. This device will remember it.</p>'+
+    '<input type="password" id="pin" inputmode="numeric" autocomplete="off" maxlength="12" aria-label="PIN" required>'+
+    '<div class="err" id="pinerr" role="alert">'+esc(msg||"")+'</div><button class="btn primary" type="submit" id="pingo">Open</button></form></div>';
+  const i=$("pin");if(i&&i.focus)i.focus();
+}
+async function tryPin(pin){
+  const err=$("pinerr"),go=$("pingo");go.disabled=true;err.textContent="Checking";
+  try{const j=await api({op:"login",pin});
+    if(j.token){tokenSet(j.token);$("gate").innerHTML="";document.body.classList.remove("locked");db=makeRemote(j.token);start();return;}
+    err.textContent=j.error==="wrong_pin"?"That PIN is not right. Try again.":j.error==="locked"?"Too many wrong tries. Wait 15 minutes and try again.":j.error==="pin_not_set"?"The PIN has not been set in the Apps Script yet.":"Something went wrong. Try again.";
+  }catch(e){err.textContent="Could not reach the server. Check your connection and try again.";}
+  go.disabled=false;
+}
+function lsGet(path){try{const v=localStorage.getItem("lazy:"+path);return v?JSON.parse(v):null;}catch(e){return null;}}
+function lsSet(path,data){try{localStorage.setItem("lazy:"+path,JSON.stringify(data));}catch(e){}}
+function save(path,data){
+  const body=JSON.parse(JSON.stringify(data));
+  if(!db){lsSet(path,body);return;}
+  chains[path]=(chains[path]||Promise.resolve()).then(()=>db.doc(path).set(body)).catch(e=>{
+    if(e&&e.code==="invalid_argument"){S.sync="readonly";toast("You can view this plan but not change it. Ask the owner for edit access.");}
+    else{toast("That change did not save. Check your connection and try again.");}
+    renderSync();
+  });
+}
+function watch(key,path,apply){
+  if(unsub[key]){unsub[key]();unsub[key]=null;}
+  if(!db){apply(lsGet(path));render();return;}
+  unsub[key]=db.doc(path).onSnapshot(snap=>{
+    apply(snap.exists?JSON.parse(JSON.stringify(snap.data())):null);
+    if(!snap.metadata||!snap.metadata.fromCache){if(S.sync==="connecting"||S.sync==="slow")S.sync="live";}
+    render();
+  },()=>{S.sync="local";render();});
+}
+function watchWeek(){
+  S.days={};S.weekHave={};S.order=null;S.recent=[];
+  watch("week","weeks/"+S.week,d=>{S.days=(d&&d.days)||{};S.weekHave=(d&&d.have)||{};S.loaded=true;});
+  watch("order","orders/"+S.week,d=>{S.order=d;});
+  const prev=[addDays(S.week,-7),addDays(S.week,-14)];
+  if(db){Promise.all(prev.map(w=>db.doc("weeks/"+w).get().catch(()=>null))).then(sn=>{
+    const ids=[];sn.forEach(s=>{if(s&&s.exists){const d=s.data().days||{};DAYS.forEach(k=>d[k]&&ids.push(d[k]));}});S.recent=ids;});}
+  else{const ids=[];prev.forEach(w=>{const d=lsGet("weeks/"+w);if(d&&d.days)DAYS.forEach(k=>d.days[k]&&ids.push(d.days[k]));});S.recent=ids;}
+}
+async function boot(){
+  render();
+  let got=null;
+  try{if(window.claude&&window.claude.use)got=await window.claude.use("db");}catch(e){got=null;}
+  db=got;
+  if(!db&&API_URL){const t=tokenGet();if(!t){showGate("");return;}db=makeRemote(t);}
+  start();
+}
+function start(){
+  if(db){S.sync="connecting";setTimeout(()=>{if(S.sync==="connecting"){S.sync="slow";renderSync();}},10000);}
+  else S.sync="local";
+  if(db){db.collection("weeks").onSnapshot(snap=>{const all={};snap.docs.forEach(d=>{all[d.id]=(d.data()||{}).days||{};});S.all=all;render();},()=>{});}
+  watch("prefs","state/prefs",d=>{S.prefs=d||JSON.parse(JSON.stringify(DEFAULT_PREFS));});
+  watchWeek();
+}
+
+/* ---------- Planning maths ---------- */
+const up=x=>Math.max(1,Math.ceil(x-0.06));
+/* Staples sold as whole cans, jars, cartons or packs: read how much a recipe uses from its amount text. */
+function wholeUnits(txt){const m=/^(\d+)?\s*(?:(\d)\/(\d))?\s*(?:cans?|jars?|cartons?|packs?)\b/.exec(txt);if(!m||(!m[1]&&!m[2]))return 0;return (m[1]?+m[1]:0)+(m[2]?m[2]/m[3]:0);}
+function analyse(ids){
+  const use={},meals={},need={};
+  ids.forEach(id=>{const r=RB[id];if(!r)return;r.ing.forEach(a=>{const k=a[0];if(!meals[k]){use[k]=0;meals[k]=[];need[k]=0;}use[k]+=a[1];meals[k].push(r.name);if(ING[k].kind==="s")need[k]+=wholeUnits(a[2]);});});
+  let bought=0,used=0,waste=0,fresh=0;const left=[];
+  for(const k in use){if(ING[k].kind!=="f")continue;fresh++;const q=up(use[k]),l=q-use[k];bought+=q;used+=Math.min(q,use[k]);if(l>0.1){waste+=l;left.push({k,l});}}
+  return{use,meals,need,left,waste,bought,used,fresh};
+}
+function score(ids){
+  const a=analyse(ids);let s=a.waste*3+a.fresh*0.12;
+  const pc={},cc={};
+  ids.forEach(id=>{const r=RB[id];if(!r)return;pc[r.protein]=(pc[r.protein]||0)+1;cc[r.cuisine]=(cc[r.cuisine]||0)+1;if(S.recent.indexOf(id)>=0)s+=3;});
+  for(const k in pc)if(pc[k]>2)s+=(pc[k]-2)*2;
+  for(const k in cc)if(cc[k]>2)s+=(cc[k]-2)*1.5;
+  return s;
+}
+function plannedIds(days){return DAYS.map(d=>(days||S.days)[d]).filter(id=>id&&RB[id]);}
+function autoPlan(shuffle){
+  const p=prefs();const days=shuffle?{}:Object.assign({},S.days);
+  const empty=p.cookDays.filter(d=>!days[d]||!RB[days[d]]);
+  if(!empty.length){toast("Every cooking night already has a meal. Shuffle to start over.");return;}
+  const fixed=plannedIds(days);
+  const pool=RECIPES.filter(r=>!p.hidden[r.id]&&fixed.indexOf(r.id)<0).map(r=>r.id);
+  if(pool.length<empty.length){toast("Not enough recipes left to choose from. Unhide a few in Recipes.");return;}
+  let best=null,bestS=Infinity;
+  for(let t=0;t<900;t++){
+    const pick=[];const used={};
+    while(pick.length<empty.length){const id=pool[Math.floor(Math.random()*pool.length)];if(!used[id]){used[id]=1;pick.push(id);}}
+    const s=score(fixed.concat(pick))+Math.random()*0.3;
+    if(s<bestS){bestS=s;best=pick;}
+  }
+  DAYS.forEach(d=>{if(empty.indexOf(d)>=0)days[d]=best[empty.indexOf(d)];});
+  setDays(days);
+}
+function setDays(days){const clean={};DAYS.forEach(d=>{if(days[d])clean[d]=days[d];});S.days=clean;saveWeek();render();}
+function saveWeek(){save("weeks/"+S.week,{days:S.days,have:S.weekHave});}
+/* Meat and fish that may be sitting in the freezer: remind the night before. */
+const THAW_MAYBE={gbeef:"ground beef",chthigh:"chicken thighs",chbreast:"chicken breasts",sausage:"sausages",porkchop:"pork chops",bacon:"bacon",kielbasa:"kielbasa"};
+const THAW_ALWAYS={salmon:"salmon",shrimp:"shrimp"};
+function thawFor(r){if(!r)return null;let a=null,m=null;r.ing.forEach(x=>{if(THAW_ALWAYS[x[0]])a=THAW_ALWAYS[x[0]];else if(THAW_MAYBE[x[0]])m=THAW_MAYBE[x[0]];});
+  if(a)return{always:true,what:a};if(m)return{always:false,what:m};return null;}
+function thawText(t){const pl=/s$/.test(t.what);return t.always?"move the "+t.what+" from the freezer to the fridge":"if the "+t.what+(pl?" are":" is")+" in the freezer, move "+(pl?"them":"it")+" to the fridge";}
+function thawNote(r,when){const t=thawFor(r);if(!t)return"";
+  return'<div class="thaw"><b>Thaw tonight:</b> '+thawText(t)+" for "+when+"’s "+esc((SHORT[r.id]||r.name).toLowerCase())+'.</div>';}
+function setPrefs(p){S.prefs=p;save("state/prefs",p);render();}
+
+/* ---------- Grocery list ---------- */
+const PLURAL={bunch:"bunches",loaf:"loaves",dozen:"dozen",box:"boxes"};
+function qtyText(ing,q){if(ing.unit==="each")return String(q);return q+" "+(q===1?ing.unit:(PLURAL[ing.unit]||ing.unit+"s"));}
+function fracText(l){const t=[[.25,"a quarter"],[.33,"a third"],[.5,"half"],[.67,"two thirds"],[.75,"three quarters"]];let b=t[0];t.forEach(x=>{if(Math.abs(x[0]-l)<Math.abs(b[0]-l))b=x;});return b[1];}
+function buildList(){
+  const a=analyse(plannedIds());const p=prefs();const fresh=[],staples=[];
+  for(const k in a.use){const ing=ING[k];
+    const row={id:k,name:ing.name,aisle:ing.aisle,search:ing.search,meals:a.meals[k]};
+    if(ing.kind==="f"){row.qty=up(a.use[k]);row.qtyText=qtyText(ing,row.qty);row.have=!!S.weekHave[k];fresh.push(row);}
+    else{row.qty=up(a.need[k]||0);row.qtyText=qtyText(ing,row.qty);row.have=!!p.have[k];staples.push(row);}
+  }
+  const by=(x,y)=>AISLES.indexOf(x.aisle)-AISLES.indexOf(y.aisle)||x.name.localeCompare(y.name);
+  fresh.sort(by);staples.sort(by);
+  return{a,fresh,staples,extras:p.regulars.filter(r=>r.on!==false).map(r=>r.t)};
+}
+function orderItems(L){
+  const items=L.fresh.filter(s=>!s.have).concat(L.staples.filter(s=>!s.have)).map(r=>({id:r.id,name:r.name,qty:r.qty,qtyText:r.qtyText,search:r.search}));
+  return{items,extras:L.extras.slice()};
+}
+function listText(L){
+  const o=orderItems(L);
+  return o.items.map(i=>"- "+i.name+" x "+i.qtyText).concat(o.extras.map(e=>"- "+e)).join("\n");
+}
+const storeUrl=term=>"https://www.realcanadiansuperstore.ca/search?search-bar="+encodeURIComponent(term);
+
+/* ---------- Rendering ---------- */
+const $=id=>document.getElementById(id);
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+function renderSync(){
+  const el=$("sync");const m={connecting:["","Connecting"],live:["live","Shared and in sync"],slow:["warn","Can't reach saved plan yet"],
+    local:["warn","Saved on this device only"],readonly:["warn","View only"]}[S.sync];
+  el.className="sync "+m[0];el.lastElementChild.textContent=m[1];
+}
+function monthLabel(){const d=parse(S.month);const FULL=["January","February","March","April","May","June","July","August","September","October","November","December"];
+  $("weeklabel").innerHTML=FULL[d.getMonth()]+" "+d.getFullYear()+"<small>Tap a day to open its week</small>";
+  $("prev").setAttribute("aria-label","Previous month");$("next").setAttribute("aria-label","Next month");}
+function shiftMonth(n){const d=parse(S.month);d.setMonth(d.getMonth()+n);S.month=iso(d);}
+function weekDays(w){if(w===S.week)return S.days;if(db)return S.all[w]||{};const d=lsGet("weeks/"+w);return(d&&d.days)||{};}
+function viewMonth(){
+  const first=parse(S.month);const m=first.getMonth();let w=iso(mondayOf(first));let planned=0;
+  let h='<section><div class="dow">'+DAYS.map(d=>"<span>"+d+"</span>").join("")+'</div>';
+  while(true){
+    const days=weekDays(w);
+    h+='<div class="mweek'+(w===THISWEEK?" cur":"")+'">';
+    DAYS.forEach((d,i)=>{const date=addDays(w,i);const dt=parse(date);const r=RB[days[d]];if(r&&dt.getMonth()===m)planned++;
+      h+='<button class="mcell'+(dt.getMonth()!==m?" out":"")+(date===TODAY?" today":"")+'" data-act="goweek" data-week="'+w+'" aria-label="'+DAYNAME[d]+" "+MONTHS[dt.getMonth()]+" "+dt.getDate()+": "+(r?esc(r.name):"nothing planned")+'"><span class="n">'+dt.getDate()+'</span>'+(r?'<span class="m">'+esc(SHORT[r.id]||r.name)+'</span>':"")+'</button>';});
+    h+='</div>';
+    w=addDays(w,7);if(parse(w).getMonth()!==m||parse(w)<first)break;
+  }
+  h+='<div class="mnote"><span>'+(planned?planned+" dinner"+(planned===1?"":"s")+" planned this month.":"Nothing planned this month yet.")+' To plan a later week, tap any day in it, then “Plan my week”.</span>'+
+     (S.month!==THISWEEK.slice(0,7)+"-01"?'<button class="btn small" data-act="thismonth">Back to this month</button>':"")+'</div></section>';
+  return h;
+}
+function weekLabel(){
+  $("prev").setAttribute("aria-label","Previous week");$("next").setAttribute("aria-label","Next week");
+  const a=parse(S.week),b=parse(addDays(S.week,6));
+  const txt=MONTHS[a.getMonth()]+" "+a.getDate()+" to "+(a.getMonth()===b.getMonth()?"":MONTHS[b.getMonth()]+" ")+b.getDate();
+  const diff=Math.round((parse(S.week)-parse(THISWEEK))/6048e5);
+  const rel=diff===0?"This week":diff===1?"Next week":diff===-1?"Last week":diff>0?diff+" weeks ahead":(-diff)+" weeks ago";
+  $("weeklabel").innerHTML=esc(txt)+"<small>"+rel+"</small>";
+}
+function recipeMeta(r){return r.mins+" min · "+r.method+" · "+r.cuisine;}
+function viewWeek(){
+  const p=prefs();const ids=plannedIds();const a=analyse(ids);
+  const pct=a.bought?Math.round(a.used/a.bought*100):0;
+  const emptyCook=p.cookDays.filter(d=>!S.days[d]||!RB[S.days[d]]).length;
+  let h='<section><div class="summary">';
+  if(ids.length){
+    h+='<div class="line"><span><strong>'+ids.length+'</strong> dinner'+(ids.length===1?"":"s")+' planned</span><span><strong>'+a.fresh+'</strong> fresh items to buy</span></div>';
+    h+='<div><div class="line"><span>Fresh food that gets used</span><strong>'+pct+'%</strong></div><div class="meter" role="img" aria-label="'+pct+' percent of fresh food used"><i style="width:'+pct+'%"></i></div></div>';
+    h+='<div class="left">'+(a.left.length?"Left over: "+a.left.map(x=>"<b>"+fracText(x.l)+" "+esc(unitOf(x.k))+"</b>").join(", ")+". Swap in a meal marked “uses up” to finish them.":"Nothing left over. Every pack you buy gets finished.")+'</div>';
+  }else{
+    h+='<div class="left">No dinners planned for this week yet. One tap picks '+p.cookDays.length+' easy meals that share ingredients, so nothing is left to rot in the fridge.</div>';
+  }
+  h+='<div class="row">';
+  if(emptyCook)h+='<button class="btn primary" data-act="plan">'+(ids.length?"Fill the empty nights":"Plan my week")+'</button>';
+  if(ids.length)h+='<button class="btn'+(emptyCook?"":" primary")+'" data-act="shuffle">Shuffle the whole week</button>';
+  if(ids.length)h+='<a class="btn" href="#groceries">See grocery list</a>';
+  h+='</div></div>';
+  h+='<div class="days">';
+  DAYS.forEach((d,i)=>{
+    const date=addDays(S.week,i);const r=RB[S.days[d]];const cook=p.cookDays.indexOf(d)>=0;
+    const nxt=i<6?RB[S.days[DAYS[i+1]]]:RB[weekDays(addDays(S.week,7)).mon];const note=thawNote(nxt,"tomorrow");
+    h+='<div class="day'+(date===TODAY?" today":"")+'"><div class="stamp"><div class="d">'+d+'</div><div class="n">'+MONTHS[parse(date).getMonth()]+" "+parse(date).getDate()+'</div></div>';
+    if(r){
+      h+='<div class="dcol"><div class="meal"><h3><button data-act="open" data-id="'+r.id+'">'+esc(r.name)+'</button></h3><div class="meta">'+esc(recipeMeta(r))+'</div>'+
+         '<div class="row"><button class="btn small" data-act="swap" data-day="'+d+'">Swap</button><button class="btn small ghost" data-act="clear" data-day="'+d+'">Remove</button></div></div>'+note+'</div>';
+    }else{
+      h+='<div class="dcol"><div class="off"><span>'+(cook?"Nothing picked yet":"Night off: leftovers or takeout")+'</span><button class="btn small" data-act="swap" data-day="'+d+'">Add a meal</button></div>'+note+'</div>';
+    }
+    h+='</div>';
+  });
+  h+='</div>';
+  h+='<details class="set"><summary>Which nights do you cook?</summary><div class="chips">'+DAYS.map(d=>'<button class="chip'+(p.cookDays.indexOf(d)>=0?" on":"")+'" data-act="cookday" data-day="'+d+'" aria-pressed="'+(p.cookDays.indexOf(d)>=0)+'">'+DAYNAME[d].slice(0,3)+'</button>').join("")+'</div></details>';
+  h+='</section>';
+  return h;
+}
+function unitOf(k){const i=ING[k];const nm=i.name.replace(/\s*\(.*\)/,"").toLowerCase();return i.unit==="each"?nm:i.unit+" of "+nm;}
+function orderBanner(L){
+  const o=S.order;const st=o&&o.status;const n=orderItems(L);const count=n.items.length+n.extras.length;
+  if(!plannedIds().length&&!n.extras.length)return'<div class="banner"><strong>Nothing to buy yet</strong><p>Plan a few dinners on the Week tab and the list builds itself.</p></div>';
+  if(st==="ready"||st==="carted"){
+    const changed=JSON.stringify({i:(o.items||[]).map(x=>[x.id,x.qty]),e:o.extras||[]})!==JSON.stringify({i:n.items.map(x=>[x.id,x.qty]),e:n.extras});
+    let h='<div class="banner '+(st==="carted"?"done":"ready")+'"><div><span class="pill '+(st==="carted"?"done":"ready")+'">'+(st==="carted"?"In your Superstore cart":"Waiting for Claude")+'</span></div>';
+    h+=st==="carted"?'<strong>Your cart is filled</strong><p>Open Superstore, pick a pickup time and pay. '+(o.note?esc(o.note):"")+'</p>'
+      :'<strong>Order is ready for Claude</strong><p>Tell Claude “fill my Superstore cart” in chat, or wait for the weekly run if you set one up. Claude adds everything to your cart and stops before checkout.</p>';
+    if(changed)h+='<p><b style="color:var(--warn)">The plan changed since this was sent.</b></p>';
+    h+='<div class="row">'+(changed?'<button class="btn primary" data-act="send">Send the updated list</button>':"")+
+       (st==="carted"?'<button class="btn primary" data-act="picked">We picked it up</button>':"")+'<button class="btn" data-act="unsend">Cancel this order</button></div></div>';
+    return h;
+  }
+  if(st==="done")return'<div class="banner done"><div><span class="pill done">Picked up</span></div><strong>This week is sorted</strong><p>Staples from this order are now marked as in your cupboard.</p><div class="row"><button class="btn" data-act="unsend">Reopen</button></div></div>';
+  return'<div class="banner"><strong>'+count+' things to order</strong><p>Tick off staples you already have, add anything else you need, then send it. Claude fills your Superstore cart and you pick the pickup time.</p><div class="row"><button class="btn primary" data-act="send">Send order to Claude</button><button class="btn" data-act="copy">Copy list</button></div></div>';
+}
+function viewGroceries(){
+  const L=buildList();const p=prefs();
+  let h='<section>'+orderBanner(L);
+  if(L.fresh.length){
+    h+='<h2>Fresh for this week</h2><p class="sub">Exactly what the planned dinners use, rounded up to whole packs. Already have something? Tick it and it stays off the order for this week.</p>';
+    let aisle="";L.fresh.forEach(r=>{
+      if(r.aisle!==aisle){if(aisle)h+='</ul>';aisle=r.aisle;h+='<h4>'+esc(aisle)+'</h4><ul class="list">';}
+      h+='<li class="'+(r.have?"have":"")+'"><div class="nm">'+esc(r.name)+'<small>'+esc(r.meals.join(", "))+'</small></div><span class="q">'+esc(r.qtyText)+'</span>'+(r.have?"":'<a href="'+storeUrl(r.search)+'" target="_blank" rel="noopener">Find</a>')+'<label class="ck"><input type="checkbox" id="have-'+r.id+'" data-act="have" data-id="'+r.id+'"'+(r.have?" checked":"")+'>Have it</label></li>';
+    });
+    h+='</ul>';
+  }
+  if(L.staples.length){
+    h+='<h2>Cupboard and freezer staples</h2><p class="sub">These keep for weeks. Tick the ones you already have and they stay off future orders until you untick them.</p><ul class="list">';
+    L.staples.forEach(r=>{h+='<li class="'+(r.have?"have":"")+'"><div class="nm">'+esc(r.name)+'<small>'+esc(r.meals.join(", "))+'</small></div>'+(r.qty>1&&!r.have?'<span class="q">'+esc(r.qtyText)+'</span>':"")+'<label class="ck"><input type="checkbox" id="have-'+r.id+'" data-act="have" data-id="'+r.id+'"'+(r.have?" checked":"")+'>Have it</label></li>';});
+    h+='</ul>';
+  }
+  h+='<h2>Every-week extras</h2><p class="sub">Milk, coffee, cereal, whatever you always need. Ticked items go on every order.</p>';
+  if(p.regulars.length){h+='<ul class="list">';p.regulars.forEach((r,i)=>{h+='<li><label class="ck"><input type="checkbox" id="reg-'+i+'" data-act="regtoggle" data-i="'+i+'"'+(r.on!==false?" checked":"")+'></label><div class="nm">'+esc(r.t)+'</div><button class="btn small ghost" data-act="regdel" data-i="'+i+'" aria-label="Remove '+esc(r.t)+'">Remove</button></li>';});h+='</ul>';}
+  h+='<form class="row" id="addreg" style="margin-top:8px;flex-wrap:nowrap"><input type="text" id="regtext" placeholder="Add an item, like 2% milk 4 L" maxlength="80" aria-label="Item to add every week"><button class="btn" type="submit">Add</button></form>';
+  h+='</section>';
+  return h;
+}
+function recipeRows(list,day){
+  const p=prefs();const others=day?DAYS.filter(d=>d!==day).map(d=>S.days[d]).filter(id=>id&&RB[id]):null;
+  const base=others?analyse(others):null;
+  let rows=list.map(r=>{
+    let hint="",s=0;
+    if(base){
+      const usesUp=base.left.filter(x=>r.ing.some(a=>a[0]===x.k&&a[1]>0)).map(x=>ING[x.k].name.replace(/\s*\(.*\)/,"").toLowerCase());
+      if(usesUp.length)hint="Uses up your "+usesUp.join(" and ");
+      s=score(others.concat([r.id]));
+    }
+    return{r,hint,s};
+  });
+  if(base)rows.sort((x,y)=>x.s-y.s);
+  return rows.map(o=>{const r=o.r;const hid=p.hidden[r.id];
+    return day?'<button class="pick" data-act="choose" data-day="'+day+'" data-id="'+r.id+'"><strong>'+esc(r.name)+'</strong><span class="meta">'+esc(recipeMeta(r))+'</span>'+(o.hint?'<br><em>'+esc(o.hint)+'</em>':"")+'</button>'
+      :'<li><div class="nm"><button data-act="open" data-id="'+r.id+'" style="all:unset;cursor:pointer;font-weight:600">'+esc(r.name)+'</button><small>'+esc(recipeMeta(r))+(hid?" · hidden from suggestions":"")+'</small></div><button class="btn small ghost" data-act="hide" data-id="'+r.id+'">'+(hid?"Unhide":"Hide")+'</button></li>';
+  }).join("");
+}
+function filtered(skipHidden){
+  const p=prefs();const q=S.q.trim().toLowerCase();
+  return RECIPES.filter(r=>(S.filter==="all"||r.protein===S.filter)&&(!q||(r.name+" "+r.cuisine+" "+r.method).toLowerCase().indexOf(q)>=0)&&(!skipHidden||!p.hidden[r.id]));
+}
+function filterBar(){
+  return'<input type="search" id="q" placeholder="Search '+RECIPES.length+' dinners" value="'+esc(S.q)+'" aria-label="Search recipes"><div class="chips">'+
+    PROTEINS.map(x=>'<button class="chip'+(S.filter===x[0]?" on":"")+'" data-act="filter" data-f="'+x[0]+'">'+x[1]+'</button>').join("")+'</div>';
+}
+function viewRecipes(){
+  const list=filtered(false);
+  return'<section>'+filterBar()+'<p class="sub" style="color:var(--muted);font-size:14px;margin:10px 0">Every dinner feeds two with a bit left for lunch. Hide anything you never want suggested.</p>'+
+    (list.length?'<ul class="list" id="rlist">'+recipeRows(list,null)+'</ul>':'<div class="empty">No dinners match that search.</div>')+'</section>';
+}
+function sheetHtml(){
+  const sh=S.sheet;if(!sh)return"";
+  let inner="";
+  if(sh.type==="recipe"){
+    const r=RB[sh.id];
+    inner='<div class="hd"><div><h2>'+esc(r.name)+'</h2><div class="meta">'+esc(recipeMeta(r))+' · feeds two, plus a lunch</div></div><button class="icon" data-act="close" aria-label="Close">&#215;</button></div>'+
+      '<h4>You need</h4><ul class="ing">'+r.ing.map(a=>'<li>'+esc(ING[a[0]].name.replace(/\s*\(.*\)/,""))+'<span>'+esc(a[2])+'</span></li>').join("")+'</ul>'+
+      (thawFor(r)?'<h4>The night before</h4><p style="margin:6px 0;font-size:15px">'+(s=>s.charAt(0).toUpperCase()+s.slice(1)+".")(thawText(thawFor(r)))+'</p>':"")+
+      '<h4>Do this</h4><ol>'+r.steps.map(s=>'<li>'+esc(s)+'</li>').join("")+'</ol>'+
+      '<h4>Put it on</h4><div class="chips">'+DAYS.map(d=>'<button class="chip'+(S.days[d]===r.id?" on":"")+'" data-act="choose" data-day="'+d+'" data-id="'+r.id+'">'+DAYNAME[d].slice(0,3)+'</button>').join("")+'</div>';
+  }else{
+    const list=filtered(true);
+    inner='<div class="hd"><h2>'+DAYNAME[sh.day]+' dinner</h2><button class="icon" data-act="close" aria-label="Close">&#215;</button></div>'+
+      '<p class="meta" style="margin:4px 0 10px">Best fits first: meals that finish what you are already buying.</p>'+filterBar()+
+      '<div id="rlist" style="margin-top:10px">'+(list.length?recipeRows(list,sh.day):'<div class="empty">No dinners match that search.</div>')+'</div>';
+  }
+  return'<div class="sheetwrap" data-act="backdrop"><div class="sheet" role="dialog" aria-modal="true">'+inner+'</div></div>';
+}
+function render(){
+  renderSync();if(S.tab==="month")monthLabel();else weekLabel();
+  const L=buildList();const n=orderItems(L);const cnt=n.items.length+n.extras.length;
+  document.querySelectorAll("#tabs a").forEach(a=>{a.classList.toggle("on",a.dataset.tab===S.tab);
+    if(a.dataset.tab==="groceries")a.innerHTML="Groceries"+(cnt?"<b>"+cnt+"</b>":"");});
+  const keep=document.activeElement&&document.activeElement.id==="q";
+  const pos=keep?document.activeElement.selectionStart:0;
+  $("main").innerHTML=S.tab==="groceries"?viewGroceries():S.tab==="recipes"?viewRecipes():S.tab==="month"?viewMonth():viewWeek();
+  $("overlay").innerHTML=sheetHtml();
+  if(keep){const q=$("q");if(q){q.focus();try{q.setSelectionRange(pos,pos);}catch(e){}}}
+}
+let toastT=null;
+function toast(msg){const t=$("toast");t.innerHTML='<div class="toast" role="status">'+esc(msg)+'</div>';clearTimeout(toastT);toastT=setTimeout(()=>{t.innerHTML="";},3800);}
+
+/* ---------- Actions ---------- */
+function act(a,el){
+  const p=prefs();const d=el.dataset;
+  if(a==="goweek"){if(d.week!==S.week){S.week=d.week;watchWeek();}location.hash="#week";if(S.tab==="week")render();return;}
+  if(a==="thismonth"){S.month=THISWEEK.slice(0,7)+"-01";render();return;}
+  if(a==="plan")autoPlan(false);
+  else if(a==="shuffle")autoPlan(true);
+  else if(a==="clear"){const x=Object.assign({},S.days);delete x[d.day];setDays(x);}
+  else if(a==="swap"){S.sheet={type:"pick",day:d.day};S.q="";S.filter="all";render();}
+  else if(a==="open"){S.sheet={type:"recipe",id:d.id};render();}
+  else if(a==="close"){S.sheet=null;S.q="";S.filter="all";render();}
+  else if(a==="choose"){const x=Object.assign({},S.days);DAYS.forEach(k=>{if(x[k]===d.id)delete x[k];});x[d.day]=d.id;S.sheet=null;S.q="";S.filter="all";setDays(x);toast(RB[d.id].name+" is on "+DAYNAME[d.day]+".");}
+  else if(a==="cookday"){let c=p.cookDays.slice();const i=c.indexOf(d.day);if(i>=0)c.splice(i,1);else c.push(d.day);c=DAYS.filter(k=>c.indexOf(k)>=0);p.cookDays=c;setPrefs(p);}
+  else if(a==="filter"){S.filter=d.f;render();}
+  else if(a==="hide"){if(p.hidden[d.id])delete p.hidden[d.id];else p.hidden[d.id]=true;setPrefs(p);}
+  else if(a==="have"){if(ING[d.id]&&ING[d.id].kind==="f"){const w=Object.assign({},S.weekHave);if(el.checked)w[d.id]=true;else delete w[d.id];S.weekHave=w;saveWeek();render();}
+    else{if(el.checked)p.have[d.id]=true;else delete p.have[d.id];setPrefs(p);}}
+  else if(a==="regtoggle"){p.regulars[+d.i].on=el.checked;setPrefs(p);}
+  else if(a==="regdel"){p.regulars.splice(+d.i,1);setPrefs(p);}
+  else if(a==="send"){const o=orderItems(buildList());if(!o.items.length&&!o.extras.length){toast("There is nothing on the list yet.");return;}
+    S.order={status:"ready",store:"superstore",week:S.week,items:o.items,extras:o.extras,sentAt:new Date().toISOString()};save("orders/"+S.week,S.order);render();toast("Sent. Tell Claude to fill your Superstore cart.");}
+  else if(a==="unsend"){S.order={status:"draft",week:S.week};save("orders/"+S.week,S.order);render();}
+  else if(a==="picked"){(S.order.items||[]).forEach(i=>{if(ING[i.id]&&ING[i.id].kind==="s")p.have[i.id]=true;});S.prefs=p;save("state/prefs",p);
+    S.order=Object.assign({},S.order,{status:"done"});save("orders/"+S.week,S.order);render();}
+  else if(a==="copy"){const txt=listText(buildList());
+    (navigator.clipboard?navigator.clipboard.writeText(txt):Promise.reject()).then(()=>toast("List copied.")).catch(()=>toast("Copying is blocked here. Select the list and copy it by hand."));}
+}
+document.addEventListener("click",e=>{
+  const el=e.target.closest("[data-act]");if(!el)return;
+  const a=el.dataset.act;
+  if(a==="backdrop"){if(e.target===el){S.sheet=null;S.q="";S.filter="all";render();}return;}
+  if(el.tagName==="INPUT")return;
+  act(a,el);
+});
+document.addEventListener("change",e=>{const el=e.target;if(el.tagName==="INPUT"&&el.dataset.act)act(el.dataset.act,el);});
+document.addEventListener("input",e=>{if(e.target.id==="q"){S.q=e.target.value;
+  const box=$("rlist");const day=S.sheet&&S.sheet.type==="pick"?S.sheet.day:null;const list=filtered(!!day);
+  if(box)box.innerHTML=list.length?recipeRows(list,day):'<div class="empty">No dinners match that search.</div>';else render();}});
+document.addEventListener("submit",e=>{e.preventDefault();if(e.target.id==="pinform"){const v=$("pin").value.trim();if(v)tryPin(v);return;}if(e.target.id==="addreg"){const v=$("regtext").value.trim();if(!v)return;const p=prefs();p.regulars.push({t:v.slice(0,80),on:true});setPrefs(p);}});
+document.addEventListener("keydown",e=>{if(e.key==="Escape"&&S.sheet){S.sheet=null;render();}});
+$("prev").addEventListener("click",()=>{if(S.tab==="month"){shiftMonth(-1);render();return;}S.week=addDays(S.week,-7);watchWeek();render();});
+$("next").addEventListener("click",()=>{if(S.tab==="month"){shiftMonth(1);render();return;}S.week=addDays(S.week,7);watchWeek();render();});
+function route(){const h=(location.hash||"").slice(1);S.tab=h==="groceries"||h==="recipes"||h==="month"?h:"week";if(S.tab==="month")S.month=S.week.slice(0,7)+"-01";S.sheet=null;render();window.scrollTo(0,0);}
+window.addEventListener("hashchange",route);
+S.tab=(function(){const h=(location.hash||"").slice(1);return h==="groceries"||h==="recipes"||h==="month"?h:"week";})();
+boot();
+</script>
+</body>
+</html>
